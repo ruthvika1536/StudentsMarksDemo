@@ -15,7 +15,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                git branch: 'master', url: 'https://github.com/SaiSrihitha05/StudentMarkService.git'
+                git branch: 'master', url: 'https://github.com/ruthvika1536/StudentsMarksDemo.git'
             }
         }
 
