@@ -65,7 +65,7 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    withEnv(["KUBECONFIG=C:\\Users\\HP\\.kube\\config"]) {
+                    withEnv([KUBECONFIG="C:\\Users\\ruthv\\.kube\\config"]) {
 
                         bat "kubectl apply -f k8s/namespace.yaml --validate=false"
                         bat "kubectl apply -f k8s/deployment.yaml --validate=false"
