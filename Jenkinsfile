@@ -1,25 +1,23 @@
 pipeline {
-    agent any
-    environment {
-        APP_NAME       = "studentmarkservice"
-        APP_NAMESPACE  = "${APP_NAME}-ns"
-        IMAGE_NAME     = "${APP_NAME}-image"
-        IMAGE_TAG      = "${BUILD_NUMBER}" // Cleaned tag
-        APP_PORT       = "8100"
-        NODE_PORT      = "30081"
-        REPLICA_COUNT  = "2"
-    }
-
-    stages {
-        stage('Checkout') {
-            steps {
+        agent any
+        environment {
+                    APP_NAME       = "studentmarkservice"
+                    APP_NAMESPACE  = "${APP_NAME}-ns"
+                    IMAGE_NAME     = "${APP_NAME}-image"
+                    IMAGE_TAG      = "${BUILD_NUMBER}"
+                    APP_PORT       = "8100"
+                    NODE_PORT      = "30081"
+                    REPLICA_COUNT  = "2"
+        }
+        stages {
+            stage('Checkout') {
+                steps {
                 git branch: 'master', url: 'https://github.com/ruthvika1536/StudentsMarksDemo.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                // Removed '--network host' as it's typically unnecessary for a standard build
                 bat """
                 docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile .
                 """
@@ -29,12 +27,13 @@ pipeline {
         stage('Generate Kubernetes YAMLs') {
             steps {
                 script {
-                    // This stage generates the final deployment files from the templates
+                    // Namespace
                     def ns = readFile("k8s/namespace-template.yaml")
                     ns = ns.replace("\${APP_NAMESPACE}", APP_NAMESPACE)
                            .replace("\${APP_NAME}", APP_NAME)
                     writeFile file: "k8s/namespace.yaml", text: ns
 
+                    // Deployment
                     def dep = readFile("k8s/deployment-template.yaml")
                     dep = dep.replace("\${APP_NAME}", APP_NAME)
                              .replace("\${APP_NAMESPACE}", APP_NAMESPACE)
@@ -44,6 +43,7 @@ pipeline {
                              .replace("\${REPLICA_COUNT}", REPLICA_COUNT)
                     writeFile file: "k8s/deployment.yaml", text: dep
 
+                    // Service
                     def svc = readFile("k8s/service-template.yaml")
                     svc = svc.replace("\${APP_NAME}", APP_NAME)
                              .replace("\${APP_NAMESPACE}", APP_NAMESPACE)
@@ -57,7 +57,6 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Uses the secure 'k8s-kubeconfig' ID and sets the KUBECONFIG variable
                     withCredentials([file(credentialsId: 'k8s-kubeconfig', variable: 'KUBECONFIG')]) {
                         bat "kubectl apply -f k8s/namespace.yaml"
                         bat "kubectl apply -f k8s/deployment.yaml"
