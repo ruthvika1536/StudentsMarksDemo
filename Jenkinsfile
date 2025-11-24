@@ -5,15 +5,13 @@ pipeline {
         APP_NAME       = "studentmarkservice"
         APP_NAMESPACE  = "${APP_NAME}-ns"
         IMAGE_NAME     = "${APP_NAME}-image"
-        IMAGE_TAG      = "${BUILD_NUMBER}" // Cleaned tag
+        IMAGE_TAG      = "${BUILD_NUMBER}"
         APP_PORT       = "8100"
         NODE_PORT      = "30081"
         REPLICA_COUNT  = "2"
     }
 
     stages {
-        // NOTE: The separate 'Checkout' stage is not strictly required when using 'Pipeline script from SCM'
-        // as Jenkins checks out the code to read the Jenkinsfile. We keep it for clarity.
         stage('Checkout') {
             steps {
                 git branch: 'master', url: 'https://github.com/ruthvika1536/StudentsMarksDemo.git'
@@ -61,9 +59,7 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // KUBECONFIG updated to 'ruthv' as per your previous message
-                    withEnv([KUBECONFIG:"C:\\Users\\ruthv\\.kube\\config"]) { 
-                        // Removed --validate=false for clean deployment
+                    withEnv([KUBECONFIG:"C:\\Users\\ruthv\\.kube\\config"]) {
                         bat "kubectl apply -f k8s/namespace.yaml"
                         bat "kubectl apply -f k8s/deployment.yaml"
                         bat "kubectl apply -f k8s/service.yaml"
