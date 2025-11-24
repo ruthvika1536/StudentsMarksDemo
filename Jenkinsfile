@@ -1,80 +1,59 @@
 pipeline {
     agent any
-
     environment {
-        APP_NAME       = "studentmarkservice"
-        APP_NAMESPACE  = "${APP_NAME}-ns"
-        IMAGE_NAME     = "${APP_NAME}-image"
-        IMAGE_TAG      = "${BUILD_NUMBER}"
-        APP_PORT       = "8100"
-        NODE_PORT      = "30081"
-        REPLICA_COUNT  = "2"
+        APP_NAME = "studentmarkservice"
+        APP_NAMESPACE = "${APP_NAME}-ns"
+        IMAGE_NAME = "${APP_NAME}-image"
+        IMAGE_TAG = "${BUILD_NUMBER}${BUILD_NUMBER}"
+        APP_PORT = 8100
+        NODE_PORT = 30081
+        REPLICA_COUNT = 2
     }
-
     stages {
         stage('Checkout') {
             steps {
                 git branch: 'master', url: 'https://github.com/ruthvika1536/StudentsMarksDemo.git'
             }
         }
-
-        stage('Build Docker Image') {
+        stage('Build') {
             steps {
+                // Build docker image using Dockerfile with host network
+                bat "docker build --network host -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile ."
+            }
+        }
+        /*
+        stage('Run Container') {
+            steps {
+                script {
+                    // Run docker container instance
+                    bat "docker run -d --name ${APP_NAME} -p 8100:8100 ${IMAGE_NAME}:${IMAGE_TAG}"
+                }
+            }
+        }
+        */
+        stage('K8s Container Deployment') {
+    steps {
+        script {
+            withCredentials([file(credentialsId: 'k8s-kubeconfig', variable: 'KUBECONFIG')]) {
                 bat """
-                docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile .
+                    kubectl config view
+                    kubectl get nodes
+                    kubectl apply -f k8s/namespace.yaml --validate=false
+                    kubectl apply -f k8s/deployment.yaml --validate=false
+                    kubectl apply -f k8s/service.yaml --validate=false
                 """
             }
         }
-
-        stage('Generate Kubernetes YAMLs') {
-            steps {
-                script {
-                    // Namespace
-                    def ns = readFile("k8s/namespace-template.yaml")
-                    ns = ns.replace("\${APP_NAMESPACE}", APP_NAMESPACE)
-                           .replace("\${APP_NAME}", APP_NAME)
-                    writeFile file: "k8s/namespace.yaml", text: ns
-
-                    // Deployment
-                    def dep = readFile("k8s/deployment-template.yaml")
-                    dep = dep.replace("\${APP_NAME}", APP_NAME)
-                             .replace("\${APP_NAMESPACE}", APP_NAMESPACE)
-                             .replace("\${IMAGE_NAME}", IMAGE_NAME)
-                             .replace("\${IMAGE_TAG}", IMAGE_TAG)
-                             .replace("\${APP_PORT}", APP_PORT)
-                             .replace("\${REPLICA_COUNT}", REPLICA_COUNT)
-                    writeFile file: "k8s/deployment.yaml", text: dep
-
-                    // Service
-                    def svc = readFile("k8s/service-template.yaml")
-                    svc = svc.replace("\${APP_NAME}", APP_NAME)
-                             .replace("\${APP_NAMESPACE}", APP_NAMESPACE)
-                             .replace("\${APP_PORT}", APP_PORT)
-                             .replace("\${NODE_PORT}", NODE_PORT)
-                    writeFile file: "k8s/service.yaml", text: svc
-                }
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                script {
-                    withEnv([KUBECONFIG:"C:\\Users\\ruthv\\.kube\\config"]) {
-                        bat "kubectl apply -f k8s/namespace.yaml"
-                        bat "kubectl apply -f k8s/deployment.yaml"
-                        bat "kubectl apply -f k8s/service.yaml"
-                    }
-                }
-            }
-        }
     }
+}
 
+    }
     post {
         success {
-            echo "✅ Successfully built, generated YAML and deployed to Kubernetes!"
+            echo "✅ Checkout, Build, Dockerize & Deploy completed successfully!"
         }
         failure {
-            echo "❌ Build failed. Check logs!"
+            echo "❌ Build failed!"
         }
     }
 }
